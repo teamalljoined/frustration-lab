@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Frustration Lab
 
-## Getting Started
+Participants chat with an LLM and label each reply by **pressing and holding on words**. These labels become span-level preference data for RLHF, time-aligned with EEG / eye tracking / screen recording.
 
-First, run the development server:
+## Phases
+
+1. **Chat** (`/chat`) — ChatGPT-style window. After each reply the input stays locked until the participant labels it:
+   - **Left-click hold** = dislike, **right-click hold** (or ⇧+click) = like.
+   - Hold duration sets intensity (linear, saturates at 2 s). Repeated holds on a word add up (capped at 1).
+   - "Nothing stood out" submits an explicit null label.
+   - Holds work while the reply is still streaming, so reactions during reading are captured.
+2. **Replay** (`/replay?id=…`) — frustration index over time (turn windows shaded), a scrubbable transcript with heat overlay, an overlay-opacity slider, and a list of the strongest moments. "Import predicted signal" replaces the label-derived curve with a model's output (JSON `[{t, v}]`, where `t` is epoch ms or seconds from session start).
+3. **Train** (`/train`) — dataset stats, JSONL export/import, and label-quality evals against hidden ground truth. Training itself is a placeholder.
+
+## Grounded perturbations (for training signal)
+
+These are set per session on the home page, are hidden from the participant, and are logged:
+- **Inject odd word every N turns**: an out-of-place word (e.g. "pancake") is spliced into the reply while it streams.
+- **Swap prompt every N turns**: the model receives a different prompt than the one the participant typed.
+
+## Logged data
+
+All timestamps are epoch ms with sub-ms precision (`performance.timeOrigin + performance.now()`).
+- Per turn: user text, typing start, submit time, prompt actually sent, raw and displayed reply, **per-word `shownAt`**, stream start and end, holds (`wordIndex, valence, start, end, durationMs, intensity`), label submit time, and the perturbation.
+- **Word bounding boxes** (document coordinates) after rendering and labeling, plus scroll, resize, focus and blur events. These let you map gaze from the eye tracker to words.
+- RLHF JSONL, one record per labeled turn: context, `prompt_shown` / `prompt_sent`, `response`, `words`, merged `spans`, dense `word_reward ∈ [-1,1]`, and perturbation.
+
+Sessions are stored in the browser's `localStorage`. Export them to pool data across machines.
+
+## Run
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local   # add OPENAI_API_KEY
+npm install && npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Without a key, `/api/chat` streams a mock reply so the UI still works.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deploy (Vercel)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Import the repo in Vercel, or run `npx vercel`, then set `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`) in Project → Settings → Environment Variables.

@@ -1,103 +1,122 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { DEFAULT_CONDITION, deleteSession, listSessions, now, saveSession, uid } from "@/lib/store";
+import type { Condition, Session } from "@/lib/types";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const router = useRouter();
+  const [participant, setParticipant] = useState("P01");
+  const [cond, setCond] = useState<Condition>(DEFAULT_CONDITION);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  useEffect(() => setSessions(listSessions()), []);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+  function start() {
+    const s: Session = {
+      id: uid(),
+      participant: participant.trim() || "anon",
+      createdAt: now(),
+      endedAt: null,
+      condition: cond,
+      turns: [],
+      events: [],
+      viewport: { w: innerWidth, h: innerHeight, dpr: devicePixelRatio },
+    };
+    saveSession(s);
+    router.push(`/chat?id=${s.id}`);
+  }
+
+  const field = "w-full rounded-lg border border-black/10 bg-white px-3 py-2 outline-none focus:border-black/30";
+
+  return (
+    <main className="min-h-screen bg-[#f0f1f4] px-5 py-12 text-[#16181d]">
+      <div className="mx-auto max-w-2xl space-y-6">
+        <header>
+          <h1 className="text-2xl font-semibold">Frustration Lab</h1>
+          <p className="mt-1 text-black/60">
+            1 · Chat and label each reply by holding on words → 2 · Replay the frustration signal → 3 · Train (RLHF, coming soon)
+          </p>
+        </header>
+
+        <section className="space-y-4 rounded-2xl border border-black/10 bg-white p-6">
+          <h2 className="font-mono text-xs uppercase tracking-[0.2em] text-black/50">New session</h2>
+          <label className="block text-sm">
+            Participant ID
+            <input className={field} value={participant} onChange={(e) => setParticipant(e.target.value)} />
+          </label>
+          <label className="block text-sm">
+            Model
+            <input className={field} value={cond.model} onChange={(e) => setCond({ ...cond, model: e.target.value })} />
+          </label>
+          <label className="block text-sm">
+            System prompt
+            <textarea
+              className={field + " h-24"}
+              value={cond.systemPrompt}
+              onChange={(e) => setCond({ ...cond, systemPrompt: e.target.value })}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+          </label>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <label className="block">
+              Inject odd word every N turns <span className="text-black/40">(0 = off)</span>
+              <input
+                type="number" min={0} className={field} value={cond.injectEvery}
+                onChange={(e) => setCond({ ...cond, injectEvery: Math.max(0, +e.target.value) })}
+              />
+            </label>
+            <label className="block">
+              Swap user prompt every N turns <span className="text-black/40">(0 = off)</span>
+              <input
+                type="number" min={0} className={field} value={cond.swapEvery}
+                onChange={(e) => setCond({ ...cond, swapEvery: Math.max(0, +e.target.value) })}
+              />
+            </label>
+          </div>
+          <p className="text-xs text-black/50">
+            Perturbations are hidden from the participant and logged as ground truth (which word was injected, which prompt
+            was actually sent), so we can check label quality.
+          </p>
+          <button onClick={start} className="rounded-full bg-black px-5 py-2 text-white">
+            Start chat →
+          </button>
+        </section>
+
+        <section className="rounded-2xl border border-black/10 bg-white p-6">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-mono text-xs uppercase tracking-[0.2em] text-black/50">Sessions on this device</h2>
+            <Link href="/train" className="text-sm underline">Train / export →</Link>
+          </div>
+          {sessions.length === 0 && <p className="text-sm text-black/50">None yet.</p>}
+          <ul className="divide-y divide-black/5">
+            {sessions.map((s) => (
+              <li key={s.id} className="flex items-center gap-3 py-2 text-sm">
+                <span className="font-medium">{s.participant}</span>
+                <span className="text-black/50">
+                  {new Date(s.createdAt).toLocaleString()} · {s.turns.length} turns ·{" "}
+                  {s.turns.reduce((n, t) => n + t.holds.length, 0)} holds
+                </span>
+                <span className="ml-auto flex gap-3">
+                  {!s.endedAt && <Link className="underline" href={`/chat?id=${s.id}`}>Resume</Link>}
+                  <Link className="underline" href={`/replay?id=${s.id}`}>Replay</Link>
+                  <button
+                    className="text-black/40 hover:text-red-600"
+                    onClick={() => {
+                      if (confirm("Delete this session from this browser?")) {
+                        deleteSession(s.id);
+                        setSessions(listSessions());
+                      }
+                    }}
+                  >
+                    Delete
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
+    </main>
   );
 }
