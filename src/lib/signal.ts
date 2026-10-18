@@ -1,15 +1,5 @@
 import { wordScores } from "./heat";
-import { intensityFromMs } from "./store";
 import type { Hold, Session, Turn } from "./types";
-
-const DECAY_MS = 4000;
-
-/** Contribution of one hold at time t: ramps while held, decays after release. */
-export function holdAt(h: Hold, t: number) {
-  if (t < h.start) return 0;
-  if (t <= h.end) return intensityFromMs(t - h.start);
-  return h.intensity * Math.exp(-(t - h.end) / DECAY_MS);
-}
 
 export function sessionBounds(s: Session) {
   const t0 = s.turns[0]?.submittedAt ?? s.createdAt;
@@ -19,29 +9,9 @@ export function sessionBounds(s: Session) {
     s.endedAt ?? 0,
     lastTurn?.labelSubmittedAt ?? 0,
     lastTurn?.streamEnd ?? 0,
-    ...s.turns.flatMap((t) => t.holds.map((h) => h.end + DECAY_MS)),
+    ...s.turns.flatMap((t) => t.holds.map((h) => h.end)),
   );
   return { t0: t0 - 1000, t1 };
-}
-
-export const allHolds = (s: Session) => s.turns.flatMap((t) => t.holds);
-
-/**
- * Frustration index derived from labels: negative holds push it up, positive
- * holds pull it down. A predicted series (eye-tracking model) overrides this.
- */
-export function frustrationSeries(s: Session, n = 600) {
-  if (s.predicted?.length) return s.predicted;
-  const { t0, t1 } = sessionBounds(s);
-  const holds = allHolds(s);
-  const out: { t: number; v: number }[] = [];
-  for (let k = 0; k < n; k++) {
-    const t = t0 + ((t1 - t0) * k) / (n - 1);
-    let v = 0;
-    for (const h of holds) v += (h.valence < 0 ? 1 : -0.5) * holdAt(h, t);
-    out.push({ t, v: Math.max(0, Math.min(1, v)) });
-  }
-  return out;
 }
 
 export function turnBands(s: Session) {

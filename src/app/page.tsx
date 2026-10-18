@@ -28,20 +28,20 @@ export default function Home() {
     router.push(`/chat?id=${s.id}`);
   }
 
-  const field = "w-full rounded-lg border border-black/10 bg-white px-3 py-2 outline-none focus:border-black/30";
+  const field = "w-full rounded-lg border border-line bg-white px-3 py-2 outline-none focus:border-black/30";
 
   return (
-    <main className="min-h-screen bg-[#f0f1f4] px-5 py-12 text-[#16181d]">
+    <main className="min-h-screen bg-page px-5 py-12 text-ink">
       <div className="mx-auto max-w-2xl space-y-6">
         <header>
           <h1 className="text-2xl font-semibold">Frustration Lab</h1>
-          <p className="mt-1 text-black/60">
+          <p className="mt-1 text-ink-2">
             1 · Chat and label each reply by holding on words → 2 · Replay the frustration signal → 3 · Train (RLHF, coming soon)
           </p>
         </header>
 
-        <section className="space-y-4 rounded-2xl border border-black/10 bg-white p-6">
-          <h2 className="font-mono text-xs uppercase tracking-[0.2em] text-black/50">New session</h2>
+        <section className="space-y-4 rounded-2xl border border-line bg-white p-6">
+          <h2 className="text-[13px] font-semibold text-ink">New session</h2>
           <label className="block text-sm">
             Participant ID
             <input className={field} value={participant} onChange={(e) => setParticipant(e.target.value)} />
@@ -60,40 +60,40 @@ export default function Home() {
           </label>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <label className="block">
-              Inject odd word every N turns <span className="text-black/40">(0 = off)</span>
+              Inject odd word every N turns <span className="text-muted">(0 = off)</span>
               <input
                 type="number" min={0} className={field} value={cond.injectEvery}
                 onChange={(e) => setCond({ ...cond, injectEvery: Math.max(0, +e.target.value) })}
               />
             </label>
             <label className="block">
-              Swap user prompt every N turns <span className="text-black/40">(0 = off)</span>
+              Swap user prompt every N turns <span className="text-muted">(0 = off)</span>
               <input
                 type="number" min={0} className={field} value={cond.swapEvery}
                 onChange={(e) => setCond({ ...cond, swapEvery: Math.max(0, +e.target.value) })}
               />
             </label>
           </div>
-          <p className="text-xs text-black/50">
+          <p className="text-xs text-muted">
             Perturbations are hidden from the participant and logged as ground truth (which word was injected, which prompt
             was actually sent), so we can check label quality.
           </p>
-          <button onClick={start} className="rounded-full bg-black px-5 py-2 text-white">
+          <button onClick={start} className="rounded-full bg-ink px-5 py-2 text-white">
             Start chat →
           </button>
         </section>
 
-        <section className="rounded-2xl border border-black/10 bg-white p-6">
+        <section className="rounded-2xl border border-line bg-white p-6">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-mono text-xs uppercase tracking-[0.2em] text-black/50">Sessions on this device</h2>
+            <h2 className="text-[13px] font-semibold text-ink">Sessions on this device</h2>
             <Link href="/train" className="text-sm underline">Train / export →</Link>
           </div>
-          {sessions.length === 0 && <p className="text-sm text-black/50">None yet.</p>}
-          <ul className="divide-y divide-black/5">
+          {sessions.length === 0 && <p className="text-sm text-muted">None yet.</p>}
+          <ul className="divide-y divide-line-soft">
             {sessions.map((s) => (
               <li key={s.id} className="flex items-center gap-3 py-2 text-sm">
                 <span className="font-medium">{s.participant}</span>
-                <span className="text-black/50">
+                <span className="text-muted">
                   {new Date(s.createdAt).toLocaleString()} · {s.turns.length} turns ·{" "}
                   {s.turns.reduce((n, t) => n + t.holds.length, 0)} holds
                 </span>
@@ -101,7 +101,7 @@ export default function Home() {
                   {!s.endedAt && <Link className="underline" href={`/chat?id=${s.id}`}>Resume</Link>}
                   <Link className="underline" href={`/replay?id=${s.id}`}>Replay</Link>
                   <button
-                    className="text-black/40 hover:text-red-600"
+                    className="text-muted hover:text-red-600"
                     onClick={() => {
                       if (confirm("Delete this session from this browser?")) {
                         deleteSession(s.id);

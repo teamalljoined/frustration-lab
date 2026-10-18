@@ -13,23 +13,19 @@ export function wordScores(holds: { wordIndex: number; valence: number; intensit
   return { net, neg: net.map((v) => Math.max(0, -v)), pos: net.map((v) => Math.max(0, v)) };
 }
 
-// Negative heat goes amber -> magenta as it intensifies (matches the replay mock).
-function negColor(v: number, a: number) {
-  const r = 240, g = Math.round(180 - 130 * v), b = Math.round(60 + 60 * v);
-  return `rgba(${r},${g},${b},${a})`;
-}
-function posColor(_v: number, a: number) {
-  return `rgba(34,170,120,${a})`;
-}
+// Diverging label colors (tokens --color-neg / --color-pos).
+const negColor = (a: number) => `rgba(227,73,72,${a})`;
+const posColor = (a: number) => `rgba(42,120,214,${a})`;
 
-/** Soft glow behind a word, like a highlighter blot. */
+/** Highlighter tint plus an underline whose strength tracks |score|. */
 export function heatStyle(neg: number, pos: number, overlay = 1): CSSProperties {
   const v = Math.max(neg, pos);
   if (v <= 0.001) return {};
   const color = neg >= pos ? negColor : posColor;
-  const a = Math.min(1, 0.25 + 0.75 * v) * overlay;
+  const a = (0.12 + 0.38 * v) * overlay;
   return {
-    background: `radial-gradient(ellipse at center, ${color(v, a)} 0%, ${color(v, a * 0.55)} 50%, ${color(v, 0)} 78%)`,
-    borderRadius: 8,
+    background: color(a),
+    boxShadow: `inset 0 -2px 0 ${color(Math.min(1, 0.4 + 0.6 * v) * overlay)}`,
+    borderRadius: 4,
   };
 }

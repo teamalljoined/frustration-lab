@@ -12,6 +12,7 @@ export function WordText({
   onWordDown,
   interactive = false,
   showInjected = false,
+  cursor,
 }: {
   words: Word[];
   neg: number[];
@@ -20,6 +21,7 @@ export function WordText({
   onWordDown?: (i: number, e: RPointerEvent<HTMLSpanElement>) => void;
   interactive?: boolean;
   showInjected?: boolean;
+  cursor?: number; // word currently under the participant's gaze (replay)
 }) {
   const paras: Word[][] = [];
   for (const w of words) (paras[w.para] ??= []).push(w);
@@ -33,11 +35,14 @@ export function WordText({
                 data-w={w.i}
                 onPointerDown={onWordDown ? (e) => onWordDown(w.i, e) : undefined}
                 className={
-                  (interactive ? "cursor-pointer select-none rounded-md hover:bg-black/[0.04] " : "") +
+                  (interactive ? "cursor-pointer select-none rounded-md hover:bg-mid " : "") +
                   (showInjected && w.injected ? "underline decoration-dotted decoration-2 underline-offset-4 " : "") +
                   "px-[1px] py-[2px] transition-[background] duration-75"
                 }
-                style={heatStyle(neg[w.i] ?? 0, pos[w.i] ?? 0, overlay)}
+                style={{
+                  ...heatStyle(neg[w.i] ?? 0, pos[w.i] ?? 0, overlay),
+                  ...(cursor === w.i ? { outline: "2px solid #0b0b0b", outlineOffset: 2, borderRadius: 4 } : {}),
+                }}
               >
                 {w.text}
               </span>{" "}

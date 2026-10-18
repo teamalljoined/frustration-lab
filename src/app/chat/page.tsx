@@ -65,6 +65,17 @@ function Chat() {
       log({ t, type: "scroll", scrollY: window.scrollY });
     };
     const onResize = () => log({ t: now(), type: "resize", w: innerWidth, h: innerHeight });
+    // No event fires when the window moves, so poll its placement.
+    let lastWin = "";
+    const logWindow = () => {
+      const w = { sx: screenX, sy: screenY, ow: outerWidth, oh: outerHeight, iw: innerWidth, ih: innerHeight, dpr: devicePixelRatio };
+      const key = JSON.stringify(w);
+      if (key === lastWin) return;
+      lastWin = key;
+      log({ t: now(), type: "window", ...w });
+    };
+    logWindow();
+    const winTimer = setInterval(logWindow, 500);
     const onFocus = () => log({ t: now(), type: "focus" });
     const onBlur = () => log({ t: now(), type: "blur" });
     addEventListener("scroll", onScroll, { passive: true });
@@ -76,6 +87,7 @@ function Chat() {
       removeEventListener("resize", onResize);
       removeEventListener("focus", onFocus);
       removeEventListener("blur", onBlur);
+      clearInterval(winTimer);
     };
   }, []);
 
@@ -323,16 +335,16 @@ function Chat() {
   };
 
   return (
-    <main className="min-h-screen bg-white text-[#0d0d0d]" onContextMenu={(e) => e.preventDefault()}>
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-black/5 bg-white/90 px-5 py-3 text-sm backdrop-blur">
+    <main className="min-h-screen bg-white text-ink" onContextMenu={(e) => e.preventDefault()}>
+      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-line-soft bg-surface/90 px-5 py-3 text-sm backdrop-blur">
         <div className="flex items-center gap-3">
           <span className="font-semibold">Frustration Lab</span>
-          <span className="text-black/40">{s.participant} · turn {s.turns.length}</span>
+          <span className="text-muted">{s.participant} · turn {s.turns.length}</span>
         </div>
         <button
           onClick={finish}
           disabled={locked || s.turns.length === 0}
-          className="rounded-full border border-black/10 px-3 py-1.5 hover:bg-black/5 disabled:opacity-40"
+          className="rounded-full border border-line px-3 py-1.5 hover:bg-black/5 disabled:opacity-40"
         >
           Finish → replay
         </button>
@@ -344,7 +356,7 @@ function Chat() {
 
       <div className="mx-auto max-w-3xl px-5 pb-48 pt-8 text-[16.5px] lg:mr-[280px] xl:mx-auto">
         {s.turns.length === 0 && (
-          <div className="mt-24 text-center text-2xl font-medium text-black/80">What can I help with?</div>
+          <div className="mt-24 text-center text-2xl font-medium text-ink">What can I help with?</div>
         )}
         {s.turns.map((t) => {
           const { neg, pos } = wordScores(liveHolds(t), t.words.length);
@@ -352,7 +364,7 @@ function Chat() {
           return (
             <section key={t.index} className="mb-10">
               <div className="mb-6 flex justify-end">
-                <div className="max-w-[75%] whitespace-pre-wrap rounded-3xl bg-[#e9eef6] px-5 py-2.5">{t.userText}</div>
+                <div className="max-w-[75%] whitespace-pre-wrap rounded-3xl bg-mid px-5 py-2.5">{t.userText}</div>
               </div>
               <div data-turn={t.index}>
                 {t.words.length === 0 && streaming ? (
@@ -384,14 +396,14 @@ function Chat() {
           <div className="mx-auto mb-2 max-w-3xl px-5 text-sm text-red-600 lg:mr-[300px] xl:mx-auto">Request failed: {sendError}</div>
         )}
         <form
-          className="mx-auto flex max-w-3xl lg:mr-[300px] xl:mx-auto items-center gap-2 rounded-[28px] border border-black/10 bg-white px-5 py-3 shadow-[0_4px_24px_rgba(0,0,0,0.06)]"
+          className="mx-auto flex max-w-3xl lg:mr-[300px] xl:mx-auto items-center gap-2 rounded-[28px] border border-line bg-white px-5 py-3 shadow-[0_4px_24px_rgba(0,0,0,0.06)]"
           onSubmit={(e) => {
             e.preventDefault();
             send();
           }}
         >
           <input
-            className="flex-1 bg-transparent py-1 outline-none placeholder:text-black/40 disabled:cursor-not-allowed"
+            className="flex-1 bg-transparent py-1 outline-none placeholder:text-muted disabled:cursor-not-allowed"
             value={input}
             disabled={locked}
             placeholder={needsLabel && !streaming ? "Label the response above to continue" : "Ask anything"}
@@ -404,7 +416,7 @@ function Chat() {
           <button
             type="submit"
             disabled={locked || !input.trim()}
-            className="grid h-9 w-9 place-items-center rounded-full bg-black text-white disabled:bg-black/20"
+            className="grid h-9 w-9 place-items-center rounded-full bg-ink text-white disabled:bg-axis"
             aria-label="Send"
           >
             ↑
@@ -416,7 +428,7 @@ function Chat() {
 }
 
 const Kbd = ({ children }: { children: React.ReactNode }) => (
-  <kbd className="rounded border border-black/15 bg-white px-1.5 py-0.5 font-mono text-[11px] text-black/70">{children}</kbd>
+  <kbd className="rounded border border-line bg-white px-1.5 py-0.5 font-mono text-[11px] text-ink-2">{children}</kbd>
 );
 
 function LabelPanel({
@@ -446,21 +458,21 @@ function LabelPanel({
     state === "waiting" ? "Reading reply…" : state === "labeling" ? "Label this reply" : "Send a message";
 
   const legend = (
-    <div className="space-y-2 text-[13px] text-black/70">
+    <div className="space-y-2 text-[13px] text-ink-2">
       <div className="flex items-center justify-between gap-2">
         <span>Hold <Kbd>click</Kbd></span>
-        <span style={{ color: "#c2416b" }}>dislike ↓</span>
+        <span style={{ color: "var(--color-neg)" }}>dislike ↓</span>
       </div>
       <div className="flex items-center justify-between gap-2">
         <span>Hold <Kbd>⇧</Kbd>+<Kbd>click</Kbd></span>
-        <span style={{ color: "#1f9a6c" }}>like ↑</span>
+        <span style={{ color: "var(--color-pos)" }}>like ↑</span>
       </div>
-      <div className="text-[12px] text-black/45">Longer = stronger. The opposite hold pulls a word back.</div>
+      <div className="text-[12px] text-muted">Longer = stronger. The opposite hold pulls a word back.</div>
     </div>
   );
 
   const keys = (
-    <div className="space-y-1.5 text-[12px] text-black/55">
+    <div className="space-y-1.5 text-[12px] text-ink-2">
       <div className="flex justify-between"><span><Kbd>↵</Kbd> done</span><span><Kbd>Esc</Kbd> reset</span></div>
       <div><Kbd>N</Kbd> nothing stood out</div>
     </div>
@@ -468,11 +480,11 @@ function LabelPanel({
 
   if (compact) {
     return (
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border border-black/10 bg-[#fafafa] p-4">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border border-line bg-page p-4">
         <div className="w-56">{legend}</div>
         <div className="ml-auto flex items-center gap-2 text-sm">
           <button onClick={onUndo} disabled={!n} className="rounded-full px-3 py-1.5 hover:bg-black/5 disabled:opacity-40">Undo</button>
-          <button onClick={() => onSubmit(n === 0)} className="rounded-full bg-black px-4 py-1.5 text-white">
+          <button onClick={() => onSubmit(n === 0)} className="rounded-full bg-ink px-4 py-1.5 text-white">
             {n ? "Done ↵" : "Nothing stood out"}
           </button>
         </div>
@@ -483,27 +495,27 @@ function LabelPanel({
   // Gauge: +1 (like) at the top, -1 (dislike) at the bottom.
   const markerTop = `${50 - focusNet * 50}%`;
   return (
-    <div className="rounded-2xl border border-black/10 bg-white p-4 shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
+    <div className="rounded-2xl border border-line bg-white p-4 shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
       <div className="mb-4 flex items-center justify-between">
-        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-black/50">{status}</span>
-        {state === "labeling" && <span className="h-2 w-2 animate-pulse rounded-full bg-[#c2416b]" />}
+        <span className="text-[13px] font-semibold text-ink">{status}</span>
+        {state === "labeling" && <span className="h-2 w-2 animate-pulse rounded-full bg-neg" />}
       </div>
 
       <div className={`flex gap-4 ${dim}`}>
-        <div className="relative h-44 w-3 shrink-0 rounded-full bg-gradient-to-b from-[#1f9a6c]/70 via-black/10 to-[#c2416b]/80">
+        <div className="relative h-44 w-3 shrink-0 rounded-full bg-gradient-to-b from-pos via-mid to-neg">
           <div className="absolute left-1/2 top-1/2 h-px w-5 -translate-x-1/2 bg-black/30" />
           {focusWord && (
             <div
-              className="absolute left-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#16181d] shadow transition-[top] duration-75"
+              className="absolute left-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-ink shadow transition-[top] duration-75"
               style={{ top: markerTop }}
             />
           )}
         </div>
-        <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5 text-[12px] text-black/45">
+        <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5 text-[12px] text-muted">
           <span>like</span>
           <div className="min-w-0">
             <div className="truncate text-[15px] font-medium text-black">{focusWord ?? "—"}</div>
-            <div className="font-mono" style={{ color: focusNet < 0 ? "#c2416b" : focusNet > 0 ? "#1f9a6c" : undefined }}>
+            <div className="font-mono" style={{ color: focusNet < 0 ? "var(--color-neg)" : focusNet > 0 ? "var(--color-pos)" : undefined }}>
               {focusWord ? `${focusNet > 0 ? "+" : ""}${focusNet.toFixed(2)}` : "hold a word"}
               {holding !== 0 && (holding < 0 ? " ↓" : " ↑")}
             </div>
@@ -512,18 +524,18 @@ function LabelPanel({
         </div>
       </div>
 
-      <div className={`mt-5 border-t border-black/5 pt-4 ${dim}`}>{legend}</div>
+      <div className={`mt-5 border-t border-line-soft pt-4 ${dim}`}>{legend}</div>
 
-      <div className={`mt-4 border-t border-black/5 pt-4 ${dim}`}>
+      <div className={`mt-4 border-t border-line-soft pt-4 ${dim}`}>
         {keys}
         <div className="mt-4 flex items-center gap-2 text-sm">
-          <span className="mr-auto whitespace-nowrap text-[12px] text-black/45">{n} hold{n === 1 ? "" : "s"}</span>
+          <span className="mr-auto whitespace-nowrap text-[12px] text-muted">{n} hold{n === 1 ? "" : "s"}</span>
           <button onClick={onUndo} disabled={state !== "labeling" || !n} className="rounded-full px-2 py-1 hover:bg-black/5 disabled:opacity-40">Undo</button>
           <button onClick={onReset} disabled={state !== "labeling" || !n} className="rounded-full px-2 py-1 hover:bg-black/5 disabled:opacity-40">Reset</button>
           <button
             onClick={() => onSubmit(n === 0)}
             disabled={state !== "labeling"}
-            className="rounded-full bg-black px-3 py-1 text-white disabled:bg-black/20"
+            className="rounded-full bg-ink px-3 py-1 text-white disabled:bg-axis"
           >
             {n ? "Done" : "Nothing"}
           </button>

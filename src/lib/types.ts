@@ -59,7 +59,17 @@ export type LogEvent =
   | { t: number; type: "scroll"; scrollY: number }
   | { t: number; type: "resize"; w: number; h: number }
   | { t: number; type: "focus" | "blur" }
-  | { t: number; type: "keydown"; turn: number; len: number };
+  | { t: number; type: "keydown"; turn: number; len: number }
+  // Browser window placement, so screen-space gaze can be mapped to the page.
+  | { t: number; type: "window"; sx: number; sy: number; ow: number; oh: number; iw: number; ih: number; dpr: number };
+
+/** A gaze fixation resolved to a word (or a word-onset proxy when no gaze). */
+export interface Fixation {
+  turn: number;
+  wordIndex: number;
+  start: number;
+  end: number;
+}
 
 export interface Condition {
   model: string;
@@ -77,6 +87,12 @@ export interface Session {
   turns: Turn[];
   events: LogEvent[];
   viewport: { w: number; h: number; dpr: number };
-  // Optional externally predicted frustration series (e.g. from eye-tracking model)
+  // Imported after the session (EEG-derived scalar, gaze resolved to words).
+  signal?: { t: number; v: number }[];
+  signalSource?: string;
+  fixations?: Fixation[];
+  gazeSource?: string;
+  synthetic?: boolean; // demo data, not a real recording
+  /** @deprecated older sessions stored the imported series here */
   predicted?: { t: number; v: number }[];
 }
