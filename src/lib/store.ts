@@ -10,7 +10,7 @@ export const uid = () =>
   Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
 
 export const DEFAULT_CONDITION: Condition = {
-  model: "gpt-5-mini",
+  model: "gpt-4.1-mini",
   systemPrompt:
     "You are a helpful assistant. Reply in plain text only: no markdown, no bullet lists, no headings. Keep replies under 120 words.",
   injectEvery: 0,

@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   const client = new OpenAI();
   try {
     const completion = await client.chat.completions.create({
-      model: model || process.env.OPENAI_MODEL || "gpt-5-mini",
+      model: model || process.env.OPENAI_MODEL || "gpt-4.1-mini",
       messages,
       stream: true,
     });

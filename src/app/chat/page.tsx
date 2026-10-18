@@ -30,6 +30,7 @@ function Chat() {
   const [loaded, setLoaded] = useState(false);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [active, setActive] = useState<ActiveHold | null>(null);
   const [liveMs, setLiveMs] = useState(0);
   const typingStart = useRef<number | null>(null);
@@ -177,6 +178,7 @@ function Chat() {
       labelSubmittedAt: null,
     };
     s.turns.push(turn);
+    setSendError(null);
     typingStart.current = null;
     setInput("");
     setStreaming(true);
@@ -223,7 +225,15 @@ function Chat() {
       }
     } catch (e) {
       turn.error = (e as Error).message;
-      turn.assistantRaw ||= "Sorry — the model request failed.";
+      if (!turn.assistantRaw) {
+        // Nothing to label: drop the turn so the participant can retry.
+        s.turns.pop();
+        setInput(text);
+        setSendError(turn.error);
+        setStreaming(false);
+        bump("now");
+        return;
+      }
     }
     render(true);
     turn.streamEnd = now();
@@ -325,6 +335,9 @@ function Chat() {
       </div>
 
       <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-white via-white to-white/0 pb-6 pt-8">
+        {sendError && (
+          <div className="mx-auto mb-2 max-w-3xl px-5 text-sm text-red-600">Request failed: {sendError}</div>
+        )}
         <form
           className="mx-auto flex max-w-3xl items-center gap-2 rounded-[28px] border border-black/10 bg-white px-5 py-3 shadow-[0_4px_24px_rgba(0,0,0,0.06)]"
           onSubmit={(e) => {
