@@ -86,6 +86,10 @@ export function rlhfRecords(s: Session) {
       nothing_notable: t.nothingNotable,
       perturbation: t.perturbation,
       style: t.style ?? { mode: "normal" },
+      // Per chunk: shown_at → read_at is a clean reading window; read_at → labeled_at is labeling.
+      chunks: (t.chunks ?? []).map((c) => ({
+        i: c.i, start_word: c.start, end_word: c.end, shown_at: c.shownAt, read_at: c.readAt, labeled_at: c.labeledAt,
+      })),
       timing: { submitted_at: t.submittedAt, stream_start: t.streamStart, stream_end: t.streamEnd, label_submitted_at: t.labelSubmittedAt },
     }));
 }

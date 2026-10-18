@@ -40,9 +40,16 @@ function lastBefore<T extends LogEvent["type"]>(s: Session, type: T, t: number) 
 
 export const scrollAt = (s: Session, t: number) => lastBefore(s, "scroll", t)?.scrollY ?? 0;
 
-/** Word boxes per turn, from the first layout snapshot after the reply finished. */
+/**
+ * Word boxes per turn. Chunks are revealed one at a time, so each word takes
+ * its box from the first snapshot that contains it (text above never moves).
+ */
 function wordBoxes(s: Session) {
-  return s.turns.map((t) => t.wordRects?.[0]?.rects ?? []);
+  return s.turns.map((t) => {
+    const byWord = new Map<number, WordRect>();
+    for (const snap of t.wordRects ?? []) for (const r of snap.rects) if (!byWord.has(r.i)) byWord.set(r.i, r);
+    return [...byWord.values()];
+  });
 }
 
 const PAD = 4; // px tolerance around a word box

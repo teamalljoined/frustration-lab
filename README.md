@@ -4,12 +4,13 @@ Participants chat with an LLM and label each reply by **pressing and holding on 
 
 ## Phases
 
-1. **Chat** (`/chat`) — ChatGPT-style window. After each reply the input stays locked until the participant labels it:
-   - **Hold click** = dislike, **hold ⇧+click** (or right-click) = like. Hold duration sets intensity (linear, saturates at 2 s).
-   - Scores are signed and add up per word, clamped to [-1, 1], so an opposite hold pulls a word back toward neutral.
-   - Press and drag across words to mark several in one stroke; time spent on each word sets its intensity (swept words get at least 0.25). Ctrl+click also counts as like, since a Mac "right-click" is ctrl+click.
-   - Side panel: legend plus a live like/dislike gauge, and a score badge above the word being held. Hotkeys: `Enter` continues (and records "nothing stood out" if no words are marked), `Esc` resets.
-   - Holds work while the reply is still streaming, so reactions during reading are captured.
+1. **Chat** (`/chat`): a ChatGPT-style window where reading and labeling are kept apart, so EEG reading windows aren't confounded by movement:
+   - The reply is generated in full off-screen, then split into short chunks (whole sentences, about 12–32 words; paragraph breaks always split).
+   - **Read**: one chunk appears all at once, with earlier chunks dimmed above it. Labeling is locked while the participant reads with hands still. **Space** = done reading.
+   - **Label**: that chunk becomes labelable. **Enter** moves to the next chunk.
+   - **Review**: after the last chunk the whole reply is shown and more labels can be added. **Enter** continues; with no labels at all it records "nothing stood out".
+   - Labeling: **hold click** = dislike, **hold ⇧ or ctrl + click** (or right-click) = like. Hold duration sets intensity (linear, saturates at 2 s). Drag across words to mark several in one stroke; words swept past get at least 0.25. Scores are signed and add up per word, clamped to [-1, 1], so an opposite hold pulls a word back. **Esc** resets the current phase's labels.
+   - Logged per chunk: `shownAt` → `readAt` (a clean reading window) and `readAt` → `labeledAt` (labeling). Each word's onset is the moment its chunk appeared. Each hold records `phase` (`chunk` or `review`) and `chunk`.
 2. **Replay** (`/replay?id=…`): lines labels up with what the participant was reading. Labels are made *after* reading, so they mark which words matter, while EEG and gaze give the timing.
    - **EEG signal**: CSV `t,v` (or JSON `[{t, v}]`).
    - **Gaze**: CSV `t,x,y` in screen or viewport px. Each sample is mapped to a word using the logged word boxes, scroll position and window placement, then consecutive hits are merged into fixations. Without gaze, word onset times stand in for fixations.

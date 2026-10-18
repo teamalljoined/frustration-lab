@@ -194,6 +194,7 @@ function Replay() {
                 t0={bounds.t0} t1={bounds.t1} t={t} lag={lag}
                 onSeek={(x) => { setPlaying(false); setT(x); }}
                 wordOf={(f) => s.turns[f.turn]?.words[f.wordIndex]?.text ?? ""}
+                reads={s.turns.flatMap((tr) => (tr.chunks ?? []).flatMap((c) => (c.shownAt && c.readAt ? [{ start: c.shownAt, end: c.readAt }] : [])))}
               />
               <div className="mt-4 flex items-center gap-4">
                 <button
@@ -361,7 +362,7 @@ function FileButton({ onFile, children }: { onFile: (f: File) => void; children:
 }
 
 function Timeline({
-  series, fixations, nets, bands, t0, t1, t, lag, onSeek, wordOf,
+  series, fixations, nets, bands, t0, t1, t, lag, onSeek, wordOf, reads,
 }: {
   series: Series;
   fixations: Fixation[];
@@ -370,6 +371,7 @@ function Timeline({
   t0: number; t1: number; t: number; lag: number;
   onSeek: (t: number) => void;
   wordOf: (f: Fixation) => string;
+  reads: { start: number; end: number }[]; // clean reading windows (chunk shown → Space)
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(600);
@@ -381,8 +383,8 @@ function Timeline({
     return () => ro.disconnect();
   }, []);
 
-  const L = 40, R = 10, T = 8, SIG_H = 150, GAP = 14, LANE_H = 22, AX = 22;
-  const H = T + SIG_H + GAP + LANE_H + AX;
+  const L = 40, R = 10, T = 8, SIG_H = 150, GAP = 14, READ_H = 8, LANE_H = 22, AX = 22;
+  const H = T + SIG_H + GAP + READ_H + 6 + LANE_H + AX;
   const iw = Math.max(10, w - L - R);
   const x = (tt: number) => L + ((tt - t0) / (t1 - t0 || 1)) * iw;
   const lo = series.length ? Math.min(...series.map((p) => p.v)) : 0;
@@ -391,7 +393,8 @@ function Timeline({
   const y = (v: number) => T + (1 - (v - lo) / span) * SIG_H;
   const path = series.filter((p) => p.t >= t0 && p.t <= t1)
     .map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join("");
-  const laneY = T + SIG_H + GAP;
+  const readY = T + SIG_H + GAP;
+  const laneY = readY + READ_H + 6;
   const toT = (clientX: number) => {
     const r = ref.current!.getBoundingClientRect();
     return Math.max(t0, Math.min(t1, t0 + ((clientX - r.left - L) / iw) * (t1 - t0)));
@@ -409,7 +412,7 @@ function Timeline({
       >
         {bands.map((b) => (
           <g key={b.label}>
-            <rect x={x(b.start)} y={T} width={Math.max(1, x(b.end) - x(b.start))} height={SIG_H + GAP + LANE_H} fill="#f4f3ef" />
+            <rect x={x(b.start)} y={T} width={Math.max(1, x(b.end) - x(b.start))} height={laneY + LANE_H - T} fill="#f4f3ef" />
             <text x={x(b.start) + 4} y={H - 6} fontSize={11} fontFamily="ui-monospace, monospace" fill="#898781">{b.label}</text>
           </g>
         ))}
@@ -428,6 +431,11 @@ function Timeline({
             No EEG signal imported
           </text>
         )}
+        {/* Read lane: chunk on screen, hands still, before Space */}
+        <text x={L - 6} y={readY + READ_H - 1} fontSize={11} textAnchor="end" fontFamily="ui-monospace, monospace" fill="#898781">read</text>
+        {reads.map((r, i) => (
+          <rect key={`r${i}`} x={x(r.start)} y={readY} width={Math.max(2, x(r.end) - x(r.start))} height={READ_H} rx={2} fill="#52514e" />
+        ))}
         {/* Gaze lane: each fixation, colored by the word's later label */}
         <text x={L - 6} y={laneY + LANE_H / 2 + 4} fontSize={11} textAnchor="end" fontFamily="ui-monospace, monospace" fill="#898781">gaze</text>
         {fixations.map((f, i) => {

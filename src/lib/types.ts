@@ -25,6 +25,22 @@ export interface Hold {
   durationMs: number;
   intensity: number; // 0..1, derived from duration
   stroke?: string; // holds made in one press-and-drag share a stroke id
+  phase?: "chunk" | "review"; // labeled right after reading a chunk, or in the final review
+  chunk?: number;
+}
+
+/**
+ * A short piece of a reply, shown all at once. The participant reads it with
+ * hands still (shownAt → readAt is a clean EEG window), presses Space, then
+ * labels it (readAt → labeledAt).
+ */
+export interface Chunk {
+  i: number;
+  start: number; // first word index
+  end: number; // exclusive
+  shownAt: number | null;
+  readAt: number | null;
+  labeledAt: number | null;
 }
 
 export type Perturbation =
@@ -53,6 +69,7 @@ export interface Turn {
   streamStart: number;
   streamEnd: number | null;
   error?: string;
+  chunks?: Chunk[];
   holds: Hold[];
   nothingNotable: boolean;
   labelSubmittedAt: number | null;

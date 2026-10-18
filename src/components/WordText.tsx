@@ -14,6 +14,7 @@ export function WordText({
   showInjected = false,
   cursor,
   badge,
+  range,
 }: {
   words: Word[];
   neg: number[];
@@ -24,7 +25,9 @@ export function WordText({
   showInjected?: boolean;
   cursor?: number; // word currently under the participant's gaze (replay)
   badge?: { i: number; value: number }; // live score bubble above the word being held
+  range?: [number, number]; // only these words are active; earlier ones are dimmed
 }) {
+  const inRange = (i: number) => !range || (i >= range[0] && i < range[1]);
   const paras: Word[][] = [];
   for (const w of words) (paras[w.para] ??= []).push(w);
   return (
@@ -35,9 +38,10 @@ export function WordText({
             <span key={w.i}>
               <span
                 data-w={w.i}
-                onPointerDown={onWordDown ? (e) => onWordDown(w.i, e) : undefined}
+                onPointerDown={onWordDown && inRange(w.i) ? (e) => onWordDown(w.i, e) : undefined}
                 className={
-                  (interactive ? "cursor-pointer select-none rounded-md hover:bg-mid " : "") +
+                  (interactive && inRange(w.i) ? "cursor-pointer select-none rounded-md hover:bg-mid " : "") +
+                  (inRange(w.i) ? "" : "text-muted ") +
                   (showInjected && w.injected ? "underline decoration-dotted decoration-2 underline-offset-4 " : "") +
                   "relative px-[1px] py-[2px]"
                 }
