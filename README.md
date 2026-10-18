@@ -7,7 +7,8 @@ Participants chat with an LLM and label each reply by **pressing and holding on 
 1. **Chat** (`/chat`) — ChatGPT-style window. After each reply the input stays locked until the participant labels it:
    - **Hold click** = dislike, **hold ⇧+click** (or right-click) = like. Hold duration sets intensity (linear, saturates at 2 s).
    - Scores are signed and add up per word, clamped to [-1, 1], so an opposite hold pulls a word back toward neutral.
-   - Side panel: legend plus a live like/dislike gauge. Hotkeys: `Enter` done, `Esc` reset, `N` nothing stood out.
+   - Press and drag across words to mark several in one stroke; time spent on each word sets its intensity (swept words get at least 0.25). Ctrl+click also counts as like, since a Mac "right-click" is ctrl+click.
+   - Side panel: legend plus a live like/dislike gauge, and a score badge above the word being held. Hotkeys: `Enter` continues (and records "nothing stood out" if no words are marked), `Esc` resets.
    - Holds work while the reply is still streaming, so reactions during reading are captured.
 2. **Replay** (`/replay?id=…`): lines labels up with what the participant was reading. Labels are made *after* reading, so they mark which words matter, while EEG and gaze give the timing.
    - **EEG signal**: CSV `t,v` (or JSON `[{t, v}]`).

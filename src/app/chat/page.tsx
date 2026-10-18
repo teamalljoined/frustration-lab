@@ -10,7 +10,15 @@ import {
 } from "@/lib/store";
 import type { Hold, Perturbation, Session, Turn, Valence, Word } from "@/lib/types";
 
-type ActiveHold = { turn: number; wordIndex: number; valence: Valence; start: number };
+/**
+ * A press, optionally dragged across words. Each word under the pointer gets
+ * its own hold (segment); time spent on a word sets its intensity.
+ */
+type Stroke = { id: string; turn: number; valence: Valence; wordIndex: number; start: number; moved: boolean };
+
+/** Words swept over in a drag get at least this much, so a quick sweep still marks them. */
+const DRAG_MIN = 0.25;
+const segIntensity = (ms: number, moved: boolean) => (moved ? Math.max(DRAG_MIN, intensityFromMs(ms)) : intensityFromMs(ms));
 
 export default function ChatPage() {
   return (
@@ -31,7 +39,7 @@ function Chat() {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
-  const [active, setActive] = useState<ActiveHold | null>(null);
+  const [active, setActive] = useState<Stroke | null>(null);
   const [liveMs, setLiveMs] = useState(0);
   const [focus, setFocus] = useState<{ turn: number; wordIndex: number } | null>(null);
   const typingStart = useRef<number | null>(null);
@@ -109,14 +117,13 @@ function Chat() {
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    const end = () => {
-      const s = sref.current;
-      if (!s) return;
-      const t = now();
-      const turn = s.turns[active.turn];
+    const commit = (t: number, moved: boolean) => {
+      const turn = sref.current?.turns[active.turn];
+      if (!turn) return;
       const durationMs = t - active.start;
-      const hold: Hold = {
+      turn.holds.push({
         id: uid(),
+        stroke: active.id,
         turn: active.turn,
         wordIndex: active.wordIndex,
         word: turn.words[active.wordIndex]?.text ?? "",
@@ -124,17 +131,31 @@ function Chat() {
         start: active.start,
         end: t,
         durationMs,
-        intensity: intensityFromMs(durationMs),
-      };
-      turn.holds.push(hold);
+        intensity: segIntensity(durationMs, moved),
+      });
+    };
+    const move = (e: PointerEvent) => {
+      const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-w]");
+      if (!el || el.closest<HTMLElement>("[data-turn]")?.dataset.turn !== String(active.turn)) return;
+      const wi = Number(el.dataset.w);
+      if (wi === active.wordIndex) return;
+      const t = now();
+      commit(t, true);
+      setActive({ ...active, wordIndex: wi, start: t, moved: true });
+      setFocus({ turn: active.turn, wordIndex: wi });
+    };
+    const end = () => {
+      commit(now(), active.moved);
       setActive(null);
       setLiveMs(0);
       bump("now");
     };
+    addEventListener("pointermove", move);
     addEventListener("pointerup", end);
     addEventListener("pointercancel", end);
     return () => {
       cancelAnimationFrame(raf);
+      removeEventListener("pointermove", move);
       removeEventListener("pointerup", end);
       removeEventListener("pointercancel", end);
     };
@@ -144,8 +165,9 @@ function Chat() {
     if (active) return;
     if (e.button !== 0 && e.button !== 2) return;
     e.preventDefault();
-    const valence: Valence = e.button === 2 || e.shiftKey ? 1 : -1;
-    setActive({ turn: turnIndex, wordIndex: i, valence, start: now() });
+    // Like: shift, ctrl (a Mac "right-click" arrives as ctrl+left), or a real right button.
+    const valence: Valence = e.button === 2 || e.shiftKey || e.ctrlKey ? 1 : -1;
+    setActive({ id: uid(), turn: turnIndex, wordIndex: i, valence, start: now(), moved: false });
     setFocus({ turn: turnIndex, wordIndex: i });
   };
 
@@ -269,7 +291,10 @@ function Chat() {
   }
 
   function undo() {
-    last?.holds.pop();
+    if (!last?.holds.length) return;
+    const stroke = last.holds[last.holds.length - 1].stroke;
+    do last.holds.pop();
+    while (stroke && last.holds.length && last.holds[last.holds.length - 1].stroke === stroke);
     bump("now");
   }
 
@@ -286,9 +311,8 @@ function Chat() {
     if (!labeling || active) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === "Enter" && holdCount > 0) submitLabels(false);
+      if (e.key === "Enter") submitLabels(holdCount === 0);
       else if (e.key === "Escape") reset();
-      else if ((e.key === "n" || e.key === "N") && holdCount === 0) submitLabels(true);
       else return;
       e.preventDefault();
     };
@@ -319,7 +343,7 @@ function Chat() {
 
   const liveHolds = (t: Turn): Hold[] =>
     active?.turn === t.index
-      ? [...t.holds, { ...active, id: "live", word: "", end: 0, durationMs: liveMs, intensity: intensityFromMs(liveMs) }]
+      ? [...t.holds, { ...active, id: "live", word: "", end: 0, durationMs: liveMs, intensity: segIntensity(liveMs, active.moved) }]
       : t.holds;
   const focusTurn = focus ? s.turns[focus.turn] : undefined;
   const focusNet = focusTurn ? wordScores(liveHolds(focusTurn), focusTurn.words.length).net[focus!.wordIndex] ?? 0 : 0;
@@ -359,7 +383,7 @@ function Chat() {
           <div className="mt-24 text-center text-2xl font-medium text-ink">What can I help with?</div>
         )}
         {s.turns.map((t) => {
-          const { neg, pos } = wordScores(liveHolds(t), t.words.length);
+          const { neg, pos, net } = wordScores(liveHolds(t), t.words.length);
           const canLabel = t.labelSubmittedAt === null;
           return (
             <section key={t.index} className="mb-10">
@@ -376,6 +400,7 @@ function Chat() {
                     pos={pos}
                     interactive={canLabel}
                     onWordDown={canLabel ? onWordDown(t.index) : undefined}
+                    badge={active?.turn === t.index ? { i: active.wordIndex, value: net[active.wordIndex] ?? 0 } : undefined}
                   />
                 )}
               </div>
@@ -452,42 +477,54 @@ function LabelPanel({
   onSubmit: (nothing: boolean) => void;
   compact?: boolean;
 }) {
-  const n = turn?.holds.length ?? 0;
-  const dim = state !== "labeling" ? "opacity-40" : "";
-  const status =
-    state === "waiting" ? "Reading reply…" : state === "labeling" ? "Label this reply" : "Send a message";
+  const n = turn ? wordScores(turn.holds, turn.words.length).net.filter((v) => Math.abs(v) >= 0.01).length : 0;
+  const on = state === "labeling";
+  const dim = on ? "" : "opacity-40";
+  const status = state === "waiting" ? "Reading reply…" : on ? "Label this reply" : "Send a message";
 
   const legend = (
     <div className="space-y-2 text-[13px] text-ink-2">
       <div className="flex items-center justify-between gap-2">
         <span>Hold <Kbd>click</Kbd></span>
-        <span style={{ color: "var(--color-neg)" }}>dislike ↓</span>
+        <span className="text-neg">dislike ↓</span>
       </div>
       <div className="flex items-center justify-between gap-2">
-        <span>Hold <Kbd>⇧</Kbd>+<Kbd>click</Kbd></span>
-        <span style={{ color: "var(--color-pos)" }}>like ↑</span>
+        <span>Hold <Kbd>⇧</Kbd> or <Kbd>ctrl</Kbd> + click</span>
+        <span className="text-pos">like ↑</span>
       </div>
-      <div className="text-[12px] text-muted">Longer = stronger. The opposite hold pulls a word back.</div>
+      <div className="text-[12px] leading-snug text-muted">
+        Drag across words to mark several. Longer = stronger; the opposite pulls a word back.
+      </div>
     </div>
   );
 
-  const keys = (
-    <div className="space-y-1.5 text-[12px] text-ink-2">
-      <div className="flex justify-between"><span><Kbd>↵</Kbd> done</span><span><Kbd>Esc</Kbd> reset</span></div>
-      <div><Kbd>N</Kbd> nothing stood out</div>
+  const continueBtn = (
+    <button
+      onClick={() => onSubmit(n === 0)}
+      disabled={!on}
+      className="flex w-full items-center justify-center gap-2 rounded-full bg-ink px-4 py-2 text-sm text-white disabled:bg-axis"
+    >
+      {n ? "Done" : "Nothing stood out"}
+      <kbd className="rounded bg-white/15 px-1.5 font-mono text-[11px]">↵</kbd>
+    </button>
+  );
+
+  const secondary = (
+    <div className="flex items-center gap-1 text-[13px] text-ink-2">
+      <span className="mr-auto whitespace-nowrap text-[12px] text-muted">{n} marked</span>
+      <button onClick={onUndo} disabled={!on || !n} className="rounded-full px-2 py-1 hover:bg-mid disabled:opacity-40">Undo</button>
+      <button onClick={onReset} disabled={!on || !n} className="flex items-center gap-1 rounded-full px-2 py-1 hover:bg-mid disabled:opacity-40">
+        Reset <Kbd>Esc</Kbd>
+      </button>
     </div>
   );
 
   if (compact) {
     return (
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border border-line bg-page p-4">
-        <div className="w-56">{legend}</div>
-        <div className="ml-auto flex items-center gap-2 text-sm">
-          <button onClick={onUndo} disabled={!n} className="rounded-full px-3 py-1.5 hover:bg-black/5 disabled:opacity-40">Undo</button>
-          <button onClick={() => onSubmit(n === 0)} className="rounded-full bg-ink px-4 py-1.5 text-white">
-            {n ? "Done ↵" : "Nothing stood out"}
-          </button>
-        </div>
+      <div className="space-y-3 rounded-2xl border border-line bg-page p-4">
+        {legend}
+        {secondary}
+        {continueBtn}
       </div>
     );
   }
@@ -506,7 +543,7 @@ function LabelPanel({
           <div className="absolute left-1/2 top-1/2 h-px w-5 -translate-x-1/2 bg-black/30" />
           {focusWord && (
             <div
-              className="absolute left-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-ink shadow transition-[top] duration-75"
+              className="absolute left-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-ink shadow"
               style={{ top: markerTop }}
             />
           )}
@@ -514,7 +551,7 @@ function LabelPanel({
         <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5 text-[12px] text-muted">
           <span>like</span>
           <div className="min-w-0">
-            <div className="truncate text-[15px] font-medium text-black">{focusWord ?? "—"}</div>
+            <div className="truncate text-[15px] font-medium text-ink">{focusWord ?? "—"}</div>
             <div className="font-mono" style={{ color: focusNet < 0 ? "var(--color-neg)" : focusNet > 0 ? "var(--color-pos)" : undefined }}>
               {focusWord ? `${focusNet > 0 ? "+" : ""}${focusNet.toFixed(2)}` : "hold a word"}
               {holding !== 0 && (holding < 0 ? " ↓" : " ↑")}
@@ -526,20 +563,9 @@ function LabelPanel({
 
       <div className={`mt-5 border-t border-line-soft pt-4 ${dim}`}>{legend}</div>
 
-      <div className={`mt-4 border-t border-line-soft pt-4 ${dim}`}>
-        {keys}
-        <div className="mt-4 flex items-center gap-2 text-sm">
-          <span className="mr-auto whitespace-nowrap text-[12px] text-muted">{n} hold{n === 1 ? "" : "s"}</span>
-          <button onClick={onUndo} disabled={state !== "labeling" || !n} className="rounded-full px-2 py-1 hover:bg-black/5 disabled:opacity-40">Undo</button>
-          <button onClick={onReset} disabled={state !== "labeling" || !n} className="rounded-full px-2 py-1 hover:bg-black/5 disabled:opacity-40">Reset</button>
-          <button
-            onClick={() => onSubmit(n === 0)}
-            disabled={state !== "labeling"}
-            className="rounded-full bg-ink px-3 py-1 text-white disabled:bg-axis"
-          >
-            {n ? "Done" : "Nothing"}
-          </button>
-        </div>
+      <div className={`mt-4 space-y-3 border-t border-line-soft pt-4 ${dim}`}>
+        {secondary}
+        {continueBtn}
       </div>
     </div>
   );

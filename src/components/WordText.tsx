@@ -13,6 +13,7 @@ export function WordText({
   interactive = false,
   showInjected = false,
   cursor,
+  badge,
 }: {
   words: Word[];
   neg: number[];
@@ -22,6 +23,7 @@ export function WordText({
   interactive?: boolean;
   showInjected?: boolean;
   cursor?: number; // word currently under the participant's gaze (replay)
+  badge?: { i: number; value: number }; // live score bubble above the word being held
 }) {
   const paras: Word[][] = [];
   for (const w of words) (paras[w.para] ??= []).push(w);
@@ -37,7 +39,7 @@ export function WordText({
                 className={
                   (interactive ? "cursor-pointer select-none rounded-md hover:bg-mid " : "") +
                   (showInjected && w.injected ? "underline decoration-dotted decoration-2 underline-offset-4 " : "") +
-                  "px-[1px] py-[2px] transition-[background] duration-75"
+                  "relative px-[1px] py-[2px]"
                 }
                 style={{
                   ...heatStyle(neg[w.i] ?? 0, pos[w.i] ?? 0, overlay),
@@ -45,6 +47,17 @@ export function WordText({
                 }}
               >
                 {w.text}
+                {badge?.i === w.i && (
+                  <span
+                    className={
+                      "pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md px-1.5 py-0.5 font-mono text-[11px] font-medium text-white shadow-sm " +
+                      (badge.value < 0 ? "bg-neg" : badge.value > 0 ? "bg-pos" : "bg-ink")
+                    }
+                  >
+                    {badge.value > 0 ? "+" : ""}
+                    {badge.value.toFixed(2)}
+                  </span>
+                )}
               </span>{" "}
             </span>
           ))}

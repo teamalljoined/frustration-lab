@@ -22,6 +22,7 @@ export interface Hold {
   end: number;
   durationMs: number;
   intensity: number; // 0..1, derived from duration
+  stroke?: string; // holds made in one press-and-drag share a stroke id
 }
 
 export type Perturbation =
