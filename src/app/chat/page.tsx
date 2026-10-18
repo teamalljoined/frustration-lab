@@ -471,6 +471,7 @@ function Chat() {
                     interactive={p.kind === "label" || p.kind === "review"}
                     onWordDown={p.kind !== "done" ? onWordDown(t.index) : undefined}
                     badge={active?.turn === t.index ? { i: active.wordIndex, value: net[active.wordIndex] ?? 0 } : undefined}
+                    tail={chunked ? <ChunkTail kind={p.kind} last={p.chunk.i === p.n - 1} /> : undefined}
                   />
                 )}
               </div>
@@ -519,6 +520,21 @@ function Chat() {
         </form>
       </div>
     </main>
+  );
+}
+
+/**
+ * Marker after the current chunk so the reader knows whether more is coming.
+ * It appears together with the chunk (not later), so it adds no extra visual
+ * onset partway through reading.
+ */
+function ChunkTail({ kind, last }: { kind: "read" | "label"; last: boolean }) {
+  const [text, key] = kind === "read" ? [last ? "end" : "more…", "space"] : [last ? "review" : "next", "enter"];
+  return (
+    <span className="ml-1 inline-flex select-none items-center gap-1.5 align-[1px] text-[13px] leading-5 text-muted">
+      {text}
+      <kbd className="rounded border border-line bg-page px-1.5 font-mono text-[11px] text-ink-2">{key}</kbd>
+    </span>
   );
 }
 

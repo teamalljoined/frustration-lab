@@ -15,6 +15,7 @@ export function WordText({
   cursor,
   badge,
   range,
+  tail,
 }: {
   words: Word[];
   neg: number[];
@@ -26,7 +27,9 @@ export function WordText({
   cursor?: number; // word currently under the participant's gaze (replay)
   badge?: { i: number; value: number }; // live score bubble above the word being held
   range?: [number, number]; // only these words are active; earlier ones are dimmed
+  tail?: React.ReactNode; // inline marker after the last word (e.g. "more ␣")
 }) {
+  const lastI = words[words.length - 1]?.i;
   const inRange = (i: number) => !range || (i >= range[0] && i < range[1]);
   const paras: Word[][] = [];
   for (const w of words) (paras[w.para] ??= []).push(w);
@@ -63,6 +66,7 @@ export function WordText({
                   </span>
                 )}
               </span>{" "}
+              {w.i === lastI && tail}
             </span>
           ))}
         </p>
