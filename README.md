@@ -5,11 +5,16 @@ Participants chat with an LLM and label each reply by **pressing and holding on 
 ## Phases
 
 1. **Chat** (`/chat`) — ChatGPT-style window. After each reply the input stays locked until the participant labels it:
-   - **Left-click hold** = dislike, **right-click hold** (or ⇧+click) = like.
-   - Hold duration sets intensity (linear, saturates at 2 s). Repeated holds on a word add up (capped at 1).
-   - "Nothing stood out" submits an explicit null label.
+   - **Hold click** = dislike, **hold ⇧+click** (or right-click) = like. Hold duration sets intensity (linear, saturates at 2 s).
+   - Scores are signed and add up per word, clamped to [-1, 1], so an opposite hold pulls a word back toward neutral.
+   - Side panel: legend plus a live like/dislike gauge. Hotkeys: `Enter` done, `Esc` reset, `N` nothing stood out.
    - Holds work while the reply is still streaming, so reactions during reading are captured.
-2. **Replay** (`/replay?id=…`) — frustration index over time (turn windows shaded), a scrubbable transcript with heat overlay, an overlay-opacity slider, and a list of the strongest moments. "Import predicted signal" replaces the label-derived curve with a model's output (JSON `[{t, v}]`, where `t` is epoch ms or seconds from session start).
+2. **Replay** (`/replay?id=…`): lines labels up with what the participant was reading. Labels are made *after* reading, so they mark which words matter, while EEG and gaze give the timing.
+   - **EEG signal**: CSV `t,v` (or JSON `[{t, v}]`).
+   - **Gaze**: CSV `t,x,y` in screen or viewport px. Each sample is mapped to a word using the logged word boxes, scroll position and window placement, then consecutive hits are merged into fixations. Without gaze, word onset times stand in for fixations.
+   - `t` is epoch ms (same clock as the app), or seconds from session start.
+   - The view shows the signal, a gaze lane colored by each word's label, a transcript with a gaze cursor, mean EEG at fixation by label group (with adjustable lag), and a per-word table.
+   - "Generate synthetic demo" fills in fake data for trying the view. It's flagged as synthetic in the UI.
 3. **Train** (`/train`) — dataset stats, JSONL export/import, and label-quality evals against hidden ground truth. Training itself is a placeholder.
 
 ## Grounded perturbations (for training signal)
