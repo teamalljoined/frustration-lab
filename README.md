@@ -18,6 +18,14 @@ Participants chat with an LLM and label each reply by **pressing and holding on 
    - "Generate synthetic demo" fills in fake data for trying the view. It's flagged as synthetic in the UI.
 3. **Train** (`/train`) — dataset stats, JSONL export/import, and label-quality evals against hidden ground truth. Training itself is a placeholder.
 
+## Assistant behavior (frustration study)
+
+With **Frustration study** selected on the home page (the default), each reply is secretly one of:
+- **Frustrating**: one tactic per reply, e.g. over-clarifying, misunderstanding, padding, hedging, a "Step 1 of 47" process, nitpicking, contradicting itself, wandering off topic, a generic non-answer, or deflecting elsewhere. The next tactic is the least-used one so far, for even coverage. Tactics stay polite and are never insulting or unsafe.
+- **Genuinely helpful**: a direct, excellent answer, which gives participants things to *like*.
+
+The helpful rate is adjustable (default 30%), with at most 3 frustrating replies in a row. Mode and tactic are logged per turn (`style` in the export) and summarized on `/train`. Participants should consent to an assistant that may be deliberately unhelpful.
+
 ## Grounded perturbations (for training signal)
 
 These are set per session on the home page, are hidden from the participant, and are logged:

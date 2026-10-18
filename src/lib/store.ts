@@ -1,6 +1,7 @@
 "use client";
 
 import type { Condition, Session, Word } from "./types";
+import { TACTICS } from "./styles";
 
 const KEY = "frustration-lab:sessions";
 
@@ -15,6 +16,9 @@ export const DEFAULT_CONDITION: Condition = {
     "You are a helpful assistant. Reply in plain text only: no markdown, no bullet lists, no headings. Keep replies under 120 words.",
   injectEvery: 0,
   swapEvery: 0,
+  behavior: "frustration",
+  helpfulRate: 0.3,
+  tactics: TACTICS.map((t) => t.id),
 };
 
 export const ODD_WORDS = [

@@ -2,6 +2,8 @@
 // (performance.timeOrigin + performance.now()), so they can be aligned
 // with EEG / eye-tracker / screen-recording clocks.
 
+import type { TurnMode } from "./styles";
+
 export type Valence = -1 | 1; // -1 = dislike (left-hold), +1 = like (right-hold)
 
 export interface Word {
@@ -44,6 +46,7 @@ export interface Turn {
   typingStart: number | null;
   submittedAt: number;
   perturbation: Perturbation;
+  style?: TurnMode; // hidden assistant behavior for this reply (ground truth)
   model: string;
   assistantRaw: string; // what the model actually returned
   words: Word[]; // what the participant saw (raw + any injected word)
@@ -77,6 +80,9 @@ export interface Condition {
   systemPrompt: string;
   injectEvery: number; // 0 = off; inject an out-of-place word every N turns
   swapEvery: number; // 0 = off; silently swap the user's prompt every N turns
+  behavior?: "normal" | "frustration"; // frustration: mostly annoying replies, some great ones
+  helpfulRate?: number; // frustration mode: chance a reply is genuinely helpful
+  tactics?: string[]; // frustration mode: enabled tactic ids
 }
 
 export interface Session {

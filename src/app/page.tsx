@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { DEFAULT_CONDITION, deleteSession, listSessions, now, saveSession, uid } from "@/lib/store";
 import type { Condition, Session } from "@/lib/types";
+import { TACTICS } from "@/lib/styles";
 
 export default function Home() {
   const router = useRouter();
@@ -58,6 +59,63 @@ export default function Home() {
               onChange={(e) => setCond({ ...cond, systemPrompt: e.target.value })}
             />
           </label>
+          <div className="space-y-3 rounded-xl border border-line-soft bg-page p-4 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="mr-2">Assistant behavior</span>
+              {(["frustration", "normal"] as const).map((b) => (
+                <button
+                  key={b}
+                  onClick={() => setCond({ ...cond, behavior: b })}
+                  className={
+                    "rounded-full border px-3 py-1 " +
+                    ((cond.behavior ?? "normal") === b ? "border-ink bg-ink text-white" : "border-line bg-white hover:bg-mid")
+                  }
+                >
+                  {b === "frustration" ? "Frustration study" : "Normal"}
+                </button>
+              ))}
+            </div>
+            {cond.behavior === "frustration" && (
+              <>
+                <label className="flex items-center gap-3">
+                  Genuinely helpful replies
+                  <input
+                    type="range" min={0} max={1} step={0.05} value={cond.helpfulRate ?? 0.3}
+                    onChange={(e) => setCond({ ...cond, helpfulRate: +e.target.value })}
+                    className="w-40 accent-ink"
+                  />
+                  <span className="w-10 tabular-nums">{Math.round((cond.helpfulRate ?? 0.3) * 100)}%</span>
+                  <span className="text-xs text-muted">(never more than 3 frustrating in a row)</span>
+                </label>
+                <div>
+                  <div className="mb-2">Frustration tactics <span className="text-xs text-muted">(least-used is picked next)</span></div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {TACTICS.map((t) => {
+                      const on = (cond.tactics ?? []).includes(t.id);
+                      return (
+                        <button
+                          key={t.id}
+                          title={t.prompt}
+                          onClick={() =>
+                            setCond({
+                              ...cond,
+                              tactics: on ? (cond.tactics ?? []).filter((x) => x !== t.id) : [...(cond.tactics ?? []), t.id],
+                            })
+                          }
+                          className={
+                            "rounded-full border px-2.5 py-1 text-xs " +
+                            (on ? "border-neg/40 bg-neg/10 text-ink" : "border-line bg-white text-muted line-through")
+                          }
+                        >
+                          {t.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <label className="block">
               Inject odd word every N turns <span className="text-muted">(0 = off)</span>
@@ -75,8 +133,8 @@ export default function Home() {
             </label>
           </div>
           <p className="text-xs text-muted">
-            Perturbations are hidden from the participant and logged as ground truth (which word was injected, which prompt
-            was actually sent), so we can check label quality.
+            Behavior modes and perturbations are hidden from the participant and logged per turn as ground truth (mode and
+            tactic, which word was injected, which prompt was actually sent), so we can check label quality.
           </p>
           <button onClick={start} className="rounded-full bg-ink px-5 py-2 text-white">
             Start chat →

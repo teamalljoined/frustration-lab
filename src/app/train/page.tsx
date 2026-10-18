@@ -5,6 +5,7 @@ import Link from "next/link";
 import { download, listSessions, saveSession } from "@/lib/store";
 import { groundTruthEvals, rlhfRecords } from "@/lib/signal";
 import type { Session } from "@/lib/types";
+import { tacticLabel } from "@/lib/styles";
 
 const pct = (x: number) => (Number.isNaN(x) ? "—" : `${Math.round(x * 100)}%`);
 const num = (x: number) => (Number.isNaN(x) ? "—" : x.toFixed(2));
@@ -87,6 +88,36 @@ export default function TrainPage() {
               <tr><td className="py-2">Swapped-prompt turns</td><td className="text-right tabular-nums">{ev.swapTurns}</td></tr>
               <tr><td className="py-2">Mean dislike mass · swapped turns</td><td className="text-right tabular-nums">{num(ev.swapNegMass)}</td></tr>
               <tr><td className="py-2">Mean dislike mass · clean turns ({ev.cleanTurns})</td><td className="text-right tabular-nums">{num(ev.cleanNegMass)}</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section className={card}>
+          <h2 className={h2}>Labels by assistant behavior</h2>
+          <p className="-mt-2 mb-4 text-xs text-muted">
+            Mean marked mass per reply (sum of |net score| over words). Frustrating replies should collect dislikes,
+            helpful ones likes; a tactic with few dislikes may be too subtle.
+          </p>
+          <table className="w-full text-sm">
+            <thead className="text-left text-xs text-muted">
+              <tr>
+                <th className="pb-2 font-normal">Mode / tactic</th>
+                <th className="pb-2 text-right font-normal">Replies</th>
+                <th className="pb-2 text-right font-normal">Dislike</th>
+                <th className="pb-2 text-right font-normal">Like</th>
+                <th className="pb-2 text-right font-normal">Nothing</th>
+              </tr>
+            </thead>
+            <tbody className="tabular-nums">
+              {[...ev.byMode.map((r) => ({ ...r, name: r.key, sub: false })), ...ev.byTactic.map((r) => ({ ...r, name: tacticLabel(r.key), sub: true }))].map((r) => (
+                <tr key={(r.sub ? "t:" : "m:") + r.key} className="border-t border-line-soft">
+                  <td className={"py-2 " + (r.sub ? "pl-4 text-ink-2" : "font-medium capitalize")}>{r.name}</td>
+                  <td className="text-right">{r.turns}</td>
+                  <td className="text-right text-neg">{num(r.negMass)}</td>
+                  <td className="text-right text-pos">{num(r.posMass)}</td>
+                  <td className="text-right text-ink-2">{pct(r.nothing)}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </section>

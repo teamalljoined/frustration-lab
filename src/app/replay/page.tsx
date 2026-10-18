@@ -12,6 +12,7 @@ import {
   type GazeCoords, type Series,
 } from "@/lib/align";
 import type { Fixation, Session } from "@/lib/types";
+import { tacticLabel } from "@/lib/styles";
 
 export default function ReplayPage() {
   return (
@@ -225,7 +226,7 @@ function Replay() {
                 </label>
                 <label className="flex items-center gap-2">
                   <input type="checkbox" checked={showTruth} onChange={(e) => setShowTruth(e.target.checked)} />
-                  Show hidden perturbations
+                  Show hidden behavior & perturbations
                 </label>
               </div>
             </section>
@@ -245,6 +246,11 @@ function Replay() {
                         )}
                       </div>
                     </div>
+                    {showTruth && tr.style && tr.style.mode !== "normal" && (
+                      <div className={"mb-2 inline-block rounded-full px-2 py-0.5 text-xs " + (tr.style.mode === "helpful" ? "bg-pos/10 text-pos" : "bg-neg/10 text-neg")}>
+                        {tr.style.mode === "helpful" ? "helpful" : `frustrating · ${tacticLabel(tr.style.tactic)}`}
+                      </div>
+                    )}
                     <WordText
                       words={words}
                       neg={showLabels ? net.map((v) => Math.max(0, -v)) : []}

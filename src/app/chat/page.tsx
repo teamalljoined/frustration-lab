@@ -9,6 +9,7 @@ import {
   ODD_WORDS, SWAP_PROMPTS, getSession, intensityFromMs, now, saveSession, tokenize, uid,
 } from "@/lib/store";
 import type { Hold, Perturbation, Session, Turn, Valence, Word } from "@/lib/types";
+import { modeInstruction, pickMode, type TurnMode } from "@/lib/styles";
 
 /**
  * A press, optionally dragged across words. Each word under the pointer gets
@@ -192,6 +193,12 @@ function Chat() {
       perturbation = { kind: "inject_word", word: pick(ODD_WORDS), targetIndex: 4 + Math.floor(Math.random() * 16) };
     }
 
+    const style: TurnMode =
+      c.behavior === "frustration"
+        ? pickMode(s.turns.map((t) => t.style ?? { mode: "normal" }), c.helpfulRate ?? 0.3, c.tactics ?? [])
+        : { mode: "normal" };
+    const system = [c.systemPrompt, modeInstruction(style)].filter(Boolean).join("\n\n");
+
     const history = s.turns.flatMap((t) => [
       { role: "user" as const, content: t.perturbation.kind === "swap_prompt" ? t.perturbation.sentPrompt : t.userText },
       { role: "assistant" as const, content: t.assistantRaw },
@@ -204,6 +211,7 @@ function Chat() {
       typingStart: typingStart.current,
       submittedAt: now(),
       perturbation,
+      style,
       model: c.model,
       assistantRaw: "",
       words: [],
@@ -248,7 +256,7 @@ function Chat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: c.model,
-          messages: [{ role: "system", content: c.systemPrompt }, ...history, { role: "user", content: sentPrompt }],
+          messages: [{ role: "system", content: system }, ...history, { role: "user", content: sentPrompt }],
         }),
       });
       if (!res.ok || !res.body) throw new Error(await res.text());

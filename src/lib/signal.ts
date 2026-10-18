@@ -85,6 +85,7 @@ export function rlhfRecords(s: Session) {
       word_reward: wordReward(t),
       nothing_notable: t.nothingNotable,
       perturbation: t.perturbation,
+      style: t.style ?? { mode: "normal" },
       timing: { submitted_at: t.submittedAt, stream_start: t.streamStart, stream_end: t.streamEnd, label_submitted_at: t.labelSubmittedAt },
     }));
 }
@@ -103,9 +104,25 @@ export function groundTruthEvals(sessions: Session[]) {
     return wordScores(t.holds, t.words.length).net.some((v, i) => v < 0 && Math.abs(i - k) <= tol);
   };
   const negMass = (t: Turn) => wordScores(t.holds, t.words.length).neg.reduce((a, v) => a + v, 0);
+  const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
+  const posMass = (t: Turn) => wordScores(t.holds, t.words.length).pos.reduce((a, v) => a + v, 0);
+  const summarize = (ts: Turn[]) => ({
+    turns: ts.length,
+    negMass: mean(ts.map(negMass)),
+    posMass: mean(ts.map(posMass)),
+    nothing: mean(ts.map((t) => +t.nothingNotable)),
+  });
+  const byMode = (["frustrating", "helpful"] as const).map((m) => ({
+    key: m,
+    ...summarize(turns.filter((t) => t.style?.mode === m)),
+  }));
+  const tacticIds = [...new Set(turns.flatMap((t) => (t.style?.mode === "frustrating" ? [t.style.tactic] : [])))];
+  const byTactic = tacticIds.map((id) => ({
+    key: id,
+    ...summarize(turns.filter((t) => t.style?.mode === "frustrating" && t.style.tactic === id)),
+  }));
   const swap = turns.filter((t) => t.perturbation.kind === "swap_prompt");
   const clean = turns.filter((t) => t.perturbation.kind === "none");
-  const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
   return {
     labeledTurns: turns.length,
     injectTurns: inject.length,
@@ -115,5 +132,7 @@ export function groundTruthEvals(sessions: Session[]) {
     swapNegMass: mean(swap.map(negMass)),
     cleanTurns: clean.length,
     cleanNegMass: mean(clean.map(negMass)),
+    byMode,
+    byTactic,
   };
 }
