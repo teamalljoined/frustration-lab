@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { WordText } from "@/components/WordText";
+import { wordScores } from "@/lib/heat";
 import { download, getSession, intensityFromMs, saveSession } from "@/lib/store";
 import { allHolds, frustrationSeries, rlhfRecords, sessionBounds, turnBands } from "@/lib/signal";
 import type { Hold, Session } from "@/lib/types";
@@ -129,12 +130,10 @@ function Replay() {
         <section className="rounded-2xl border border-black/10 bg-white p-6 text-[16px] lg:max-h-[calc(100vh-100px)] lg:overflow-auto">
           {s.turns.filter((tr) => tr.submittedAt <= t).map((tr) => {
             const words = tr.words.filter((w) => w.shownAt <= t);
-            const neg = new Array(tr.words.length).fill(0);
-            const pos = new Array(tr.words.length).fill(0);
-            for (const h of tr.holds) {
-              const arr = h.valence < 0 ? neg : pos;
-              arr[h.wordIndex] = Math.min(1, arr[h.wordIndex] + heldAt(h, t));
-            }
+            const { neg, pos } = wordScores(
+              tr.holds.map((h) => ({ ...h, intensity: heldAt(h, t) })),
+              tr.words.length,
+            );
             return (
               <div key={tr.index} className="mb-8">
                 <div className="mb-4 flex justify-end">

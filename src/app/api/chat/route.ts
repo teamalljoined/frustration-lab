@@ -7,7 +7,7 @@ type Msg = { role: "system" | "user" | "assistant"; content: string };
 const MOCK =
   "This is a mock reply because OPENAI_API_KEY is not set on the server. " +
   "Set it in your Vercel project or .env.local to get real model outputs. " +
-  "In the meantime you can still practice the labeling task: hold left-click on words you dislike and right-click on words you like.";
+  "In the meantime you can still practice the labeling task: hold click on words you dislike and shift+click on words you like.";
 
 export async function POST(req: Request) {
   const { messages, model } = (await req.json()) as { messages: Msg[]; model?: string };

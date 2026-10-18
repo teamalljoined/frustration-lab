@@ -1,16 +1,16 @@
 import type { CSSProperties } from "react";
-import type { Hold } from "./types";
 
-/** Sum hold intensities per word, by valence, clipped to 1. */
-export function wordScores(holds: Hold[], n: number) {
-  const neg = new Array(n).fill(0);
-  const pos = new Array(n).fill(0);
+/**
+ * Signed net score per word in [-1, 1]: holds add valence × intensity, so an
+ * opposite-valence hold pulls a word back toward neutral (and past it).
+ */
+export function wordScores(holds: { wordIndex: number; valence: number; intensity: number }[], n: number) {
+  const net = new Array(n).fill(0);
   for (const h of holds) {
     if (h.wordIndex >= n) continue;
-    if (h.valence < 0) neg[h.wordIndex] = Math.min(1, neg[h.wordIndex] + h.intensity);
-    else pos[h.wordIndex] = Math.min(1, pos[h.wordIndex] + h.intensity);
+    net[h.wordIndex] = Math.max(-1, Math.min(1, net[h.wordIndex] + h.valence * h.intensity));
   }
-  return { neg, pos };
+  return { net, neg: net.map((v) => Math.max(0, -v)), pos: net.map((v) => Math.max(0, v)) };
 }
 
 // Negative heat goes amber -> magenta as it intensifies (matches the replay mock).

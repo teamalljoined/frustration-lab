@@ -33,6 +33,7 @@ function Chat() {
   const [sendError, setSendError] = useState<string | null>(null);
   const [active, setActive] = useState<ActiveHold | null>(null);
   const [liveMs, setLiveMs] = useState(0);
+  const [focus, setFocus] = useState<{ turn: number; wordIndex: number } | null>(null);
   const typingStart = useRef<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -133,6 +134,7 @@ function Chat() {
     e.preventDefault();
     const valence: Valence = e.button === 2 || e.shiftKey ? 1 : -1;
     setActive({ turn: turnIndex, wordIndex: i, valence, start: now() });
+    setFocus({ turn: turnIndex, wordIndex: i });
   };
 
   // ---- sending ----
@@ -179,6 +181,7 @@ function Chat() {
     };
     s.turns.push(turn);
     setSendError(null);
+    setFocus(null);
     typingStart.current = null;
     setInput("");
     setStreaming(true);
@@ -258,6 +261,29 @@ function Chat() {
     bump("now");
   }
 
+  function reset() {
+    if (!last) return;
+    last.holds = [];
+    setFocus(null);
+    bump("now");
+  }
+
+  const labeling = needsLabel && !streaming && last?.streamEnd != null;
+  const holdCount = last?.holds.length ?? 0;
+  useEffect(() => {
+    if (!labeling || active) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "Enter" && holdCount > 0) submitLabels(false);
+      else if (e.key === "Escape") reset();
+      else if ((e.key === "n" || e.key === "N") && holdCount === 0) submitLabels(true);
+      else return;
+      e.preventDefault();
+    };
+    addEventListener("keydown", onKey);
+    return () => removeEventListener("keydown", onKey);
+  });
+
   function finish() {
     const s = sref.current;
     if (!s) return;
@@ -279,6 +305,23 @@ function Chat() {
   }
   if (!s) return null;
 
+  const liveHolds = (t: Turn): Hold[] =>
+    active?.turn === t.index
+      ? [...t.holds, { ...active, id: "live", word: "", end: 0, durationMs: liveMs, intensity: intensityFromMs(liveMs) }]
+      : t.holds;
+  const focusTurn = focus ? s.turns[focus.turn] : undefined;
+  const focusNet = focusTurn ? wordScores(liveHolds(focusTurn), focusTurn.words.length).net[focus!.wordIndex] ?? 0 : 0;
+  const panel = {
+    state: (streaming ? "waiting" : labeling ? "labeling" : "idle") as "waiting" | "labeling" | "idle",
+    turn: labeling ? last : undefined,
+    focusWord: focusTurn?.words[focus!.wordIndex]?.text,
+    focusNet,
+    holding: active?.valence ?? 0,
+    onUndo: undo,
+    onReset: reset,
+    onSubmit: submitLabels,
+  };
+
   return (
     <main className="min-h-screen bg-white text-[#0d0d0d]" onContextMenu={(e) => e.preventDefault()}>
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-black/5 bg-white/90 px-5 py-3 text-sm backdrop-blur">
@@ -295,16 +338,16 @@ function Chat() {
         </button>
       </header>
 
-      <div className="mx-auto max-w-3xl px-5 pb-48 pt-8 text-[16.5px]">
+      <aside className="fixed right-6 top-20 hidden w-[240px] lg:block">
+        <LabelPanel {...panel} />
+      </aside>
+
+      <div className="mx-auto max-w-3xl px-5 pb-48 pt-8 text-[16.5px] lg:mr-[280px] xl:mx-auto">
         {s.turns.length === 0 && (
           <div className="mt-24 text-center text-2xl font-medium text-black/80">What can I help with?</div>
         )}
         {s.turns.map((t) => {
-          const isLive = active?.turn === t.index;
-          const holds = isLive
-            ? [...t.holds, { ...active!, id: "live", word: "", end: 0, durationMs: liveMs, intensity: intensityFromMs(liveMs) } as Hold]
-            : t.holds;
-          const { neg, pos } = wordScores(holds, t.words.length);
+          const { neg, pos } = wordScores(liveHolds(t), t.words.length);
           const canLabel = t.labelSubmittedAt === null;
           return (
             <section key={t.index} className="mb-10">
@@ -326,7 +369,9 @@ function Chat() {
               </div>
               {t.error && <div className="mt-2 text-sm text-red-600">Error: {t.error}</div>}
               {canLabel && t.streamEnd !== null && (
-                <LabelBar turn={t} onUndo={undo} onSubmit={submitLabels} />
+                <div className="mt-5 lg:hidden">
+                  <LabelPanel {...panel} compact />
+                </div>
               )}
             </section>
           );
@@ -336,10 +381,10 @@ function Chat() {
 
       <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-white via-white to-white/0 pb-6 pt-8">
         {sendError && (
-          <div className="mx-auto mb-2 max-w-3xl px-5 text-sm text-red-600">Request failed: {sendError}</div>
+          <div className="mx-auto mb-2 max-w-3xl px-5 text-sm text-red-600 lg:mr-[300px] xl:mx-auto">Request failed: {sendError}</div>
         )}
         <form
-          className="mx-auto flex max-w-3xl items-center gap-2 rounded-[28px] border border-black/10 bg-white px-5 py-3 shadow-[0_4px_24px_rgba(0,0,0,0.06)]"
+          className="mx-auto flex max-w-3xl lg:mr-[300px] xl:mx-auto items-center gap-2 rounded-[28px] border border-black/10 bg-white px-5 py-3 shadow-[0_4px_24px_rgba(0,0,0,0.06)]"
           onSubmit={(e) => {
             e.preventDefault();
             send();
@@ -370,38 +415,119 @@ function Chat() {
   );
 }
 
-function LabelBar({
+const Kbd = ({ children }: { children: React.ReactNode }) => (
+  <kbd className="rounded border border-black/15 bg-white px-1.5 py-0.5 font-mono text-[11px] text-black/70">{children}</kbd>
+);
+
+function LabelPanel({
+  state,
   turn,
+  focusWord,
+  focusNet,
+  holding,
   onUndo,
+  onReset,
   onSubmit,
+  compact = false,
 }: {
-  turn: Turn;
+  state: "waiting" | "labeling" | "idle";
+  turn?: Turn;
+  focusWord?: string;
+  focusNet: number;
+  holding: number;
   onUndo: () => void;
+  onReset: () => void;
   onSubmit: (nothing: boolean) => void;
+  compact?: boolean;
 }) {
-  const negs = turn.holds.filter((h) => h.valence < 0).length;
-  const poss = turn.holds.length - negs;
-  return (
-    <div className="mt-5 rounded-2xl border border-black/10 bg-[#fafafa] p-4 text-sm">
-      <div className="mb-3 text-black/70">
-        <b className="text-black">Label this reply to continue.</b> Press and hold on words:{" "}
-        <span className="rounded px-1" style={{ background: "rgba(240,90,110,0.25)" }}>left-click</span> = bothers you,{" "}
-        <span className="rounded px-1" style={{ background: "rgba(34,170,120,0.25)" }}>right-click</span> (or ⇧+click) = you like it.
-        Hold longer for stronger feelings.
+  const n = turn?.holds.length ?? 0;
+  const dim = state !== "labeling" ? "opacity-40" : "";
+  const status =
+    state === "waiting" ? "Reading reply…" : state === "labeling" ? "Label this reply" : "Send a message";
+
+  const legend = (
+    <div className="space-y-2 text-[13px] text-black/70">
+      <div className="flex items-center justify-between gap-2">
+        <span>Hold <Kbd>click</Kbd></span>
+        <span style={{ color: "#c2416b" }}>dislike ↓</span>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="mr-auto text-black/50">
-          {negs} dislike{negs === 1 ? "" : "s"} · {poss} like{poss === 1 ? "" : "s"}
-        </span>
-        <button onClick={onUndo} disabled={!turn.holds.length} className="rounded-full px-3 py-1.5 hover:bg-black/5 disabled:opacity-40">
-          Undo
-        </button>
-        <button onClick={() => onSubmit(true)} disabled={turn.holds.length > 0} className="rounded-full border border-black/10 px-3 py-1.5 hover:bg-black/5 disabled:opacity-40">
-          Nothing stood out
-        </button>
-        <button onClick={() => onSubmit(false)} disabled={!turn.holds.length} className="rounded-full bg-black px-4 py-1.5 text-white disabled:bg-black/20">
-          Done labeling
-        </button>
+      <div className="flex items-center justify-between gap-2">
+        <span>Hold <Kbd>⇧</Kbd>+<Kbd>click</Kbd></span>
+        <span style={{ color: "#1f9a6c" }}>like ↑</span>
+      </div>
+      <div className="text-[12px] text-black/45">Longer = stronger. The opposite hold pulls a word back.</div>
+    </div>
+  );
+
+  const keys = (
+    <div className="space-y-1.5 text-[12px] text-black/55">
+      <div className="flex justify-between"><span><Kbd>↵</Kbd> done</span><span><Kbd>Esc</Kbd> reset</span></div>
+      <div><Kbd>N</Kbd> nothing stood out</div>
+    </div>
+  );
+
+  if (compact) {
+    return (
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border border-black/10 bg-[#fafafa] p-4">
+        <div className="w-56">{legend}</div>
+        <div className="ml-auto flex items-center gap-2 text-sm">
+          <button onClick={onUndo} disabled={!n} className="rounded-full px-3 py-1.5 hover:bg-black/5 disabled:opacity-40">Undo</button>
+          <button onClick={() => onSubmit(n === 0)} className="rounded-full bg-black px-4 py-1.5 text-white">
+            {n ? "Done ↵" : "Nothing stood out"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Gauge: +1 (like) at the top, -1 (dislike) at the bottom.
+  const markerTop = `${50 - focusNet * 50}%`;
+  return (
+    <div className="rounded-2xl border border-black/10 bg-white p-4 shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
+      <div className="mb-4 flex items-center justify-between">
+        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-black/50">{status}</span>
+        {state === "labeling" && <span className="h-2 w-2 animate-pulse rounded-full bg-[#c2416b]" />}
+      </div>
+
+      <div className={`flex gap-4 ${dim}`}>
+        <div className="relative h-44 w-3 shrink-0 rounded-full bg-gradient-to-b from-[#1f9a6c]/70 via-black/10 to-[#c2416b]/80">
+          <div className="absolute left-1/2 top-1/2 h-px w-5 -translate-x-1/2 bg-black/30" />
+          {focusWord && (
+            <div
+              className="absolute left-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#16181d] shadow transition-[top] duration-75"
+              style={{ top: markerTop }}
+            />
+          )}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5 text-[12px] text-black/45">
+          <span>like</span>
+          <div className="min-w-0">
+            <div className="truncate text-[15px] font-medium text-black">{focusWord ?? "—"}</div>
+            <div className="font-mono" style={{ color: focusNet < 0 ? "#c2416b" : focusNet > 0 ? "#1f9a6c" : undefined }}>
+              {focusWord ? `${focusNet > 0 ? "+" : ""}${focusNet.toFixed(2)}` : "hold a word"}
+              {holding !== 0 && (holding < 0 ? " ↓" : " ↑")}
+            </div>
+          </div>
+          <span>dislike</span>
+        </div>
+      </div>
+
+      <div className={`mt-5 border-t border-black/5 pt-4 ${dim}`}>{legend}</div>
+
+      <div className={`mt-4 border-t border-black/5 pt-4 ${dim}`}>
+        {keys}
+        <div className="mt-4 flex items-center gap-2 text-sm">
+          <span className="mr-auto whitespace-nowrap text-[12px] text-black/45">{n} hold{n === 1 ? "" : "s"}</span>
+          <button onClick={onUndo} disabled={state !== "labeling" || !n} className="rounded-full px-2 py-1 hover:bg-black/5 disabled:opacity-40">Undo</button>
+          <button onClick={onReset} disabled={state !== "labeling" || !n} className="rounded-full px-2 py-1 hover:bg-black/5 disabled:opacity-40">Reset</button>
+          <button
+            onClick={() => onSubmit(n === 0)}
+            disabled={state !== "labeling"}
+            className="rounded-full bg-black px-3 py-1 text-white disabled:bg-black/20"
+          >
+            {n ? "Done" : "Nothing"}
+          </button>
+        </div>
       </div>
     </div>
   );

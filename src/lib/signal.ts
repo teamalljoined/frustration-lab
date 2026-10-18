@@ -1,3 +1,4 @@
+import { wordScores } from "./heat";
 import { intensityFromMs } from "./store";
 import type { Hold, Session, Turn } from "./types";
 
@@ -58,12 +59,16 @@ export function spans(t: Turn) {
   const byWord = new Map<number, { valence: number; intensity: number; holds: Hold[] }>();
   for (const h of t.holds) {
     const cur = byWord.get(h.wordIndex) ?? { valence: 0, intensity: 0, holds: [] };
-    cur.valence += h.valence * h.intensity;
     cur.holds.push(h);
-    cur.intensity = Math.min(1, cur.holds.reduce((a, x) => a + x.intensity, 0));
     byWord.set(h.wordIndex, cur);
   }
-  const idx = [...byWord.keys()].sort((a, b) => a - b);
+  const net = wordScores(t.holds, t.words.length).net;
+  for (const [i, w] of byWord) {
+    w.valence = net[i];
+    w.intensity = Math.abs(net[i]);
+  }
+  // Words whose opposite holds cancelled out carry no label.
+  const idx = [...byWord.keys()].filter((i) => Math.abs(net[i]) >= 0.01).sort((a, b) => a - b);
   const out: {
     start_word: number; end_word: number; text: string; valence: -1 | 1; intensity: number;
     hold_start: number; hold_end: number; n_holds: number;
@@ -116,9 +121,7 @@ export function rlhfRecords(s: Session) {
 
 /** Dense per-word reward in [-1, 1]: positive intensity minus negative intensity. */
 export function wordReward(t: Turn) {
-  const r = new Array(t.words.length).fill(0);
-  for (const h of t.holds) if (h.wordIndex < r.length) r[h.wordIndex] += h.valence * h.intensity;
-  return r.map((v) => Math.max(-1, Math.min(1, +v.toFixed(3))));
+  return wordScores(t.holds, t.words.length).net.map((v) => +v.toFixed(3));
 }
 
 /** Label-quality evals against hidden ground-truth perturbations. */
@@ -127,9 +130,9 @@ export function groundTruthEvals(sessions: Session[]) {
   const inject = turns.filter((t) => t.perturbation.kind === "inject_word");
   const hit = (t: Turn, tol: number) => {
     const k = t.words.findIndex((w) => w.injected);
-    return t.holds.some((h) => h.valence < 0 && Math.abs(h.wordIndex - k) <= tol);
+    return wordScores(t.holds, t.words.length).net.some((v, i) => v < 0 && Math.abs(i - k) <= tol);
   };
-  const negMass = (t: Turn) => t.holds.filter((h) => h.valence < 0).reduce((a, h) => a + h.intensity, 0);
+  const negMass = (t: Turn) => wordScores(t.holds, t.words.length).neg.reduce((a, v) => a + v, 0);
   const swap = turns.filter((t) => t.perturbation.kind === "swap_prompt");
   const clean = turns.filter((t) => t.perturbation.kind === "none");
   const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);

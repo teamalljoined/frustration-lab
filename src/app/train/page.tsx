@@ -82,7 +82,7 @@ export default function TrainPage() {
           <table className="w-full text-sm">
             <tbody className="divide-y divide-black/5">
               <tr><td className="py-2">Injected-word turns</td><td className="text-right tabular-nums">{ev.injectTurns}</td></tr>
-              <tr><td className="py-2">…injected word got a dislike hold (exact)</td><td className="text-right tabular-nums">{pct(ev.injectExactHit)}</td></tr>
+              <tr><td className="py-2">…injected word ended net-negative (exact)</td><td className="text-right tabular-nums">{pct(ev.injectExactHit)}</td></tr>
               <tr><td className="py-2">…within ±1 word</td><td className="text-right tabular-nums">{pct(ev.injectNearHit)}</td></tr>
               <tr><td className="py-2">Swapped-prompt turns</td><td className="text-right tabular-nums">{ev.swapTurns}</td></tr>
               <tr><td className="py-2">Mean dislike mass · swapped turns</td><td className="text-right tabular-nums">{num(ev.swapNegMass)}</td></tr>
